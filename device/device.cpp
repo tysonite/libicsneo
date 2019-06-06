@@ -135,6 +135,10 @@ void Device::enforcePollingMessageLimit() {
 }
 
 bool Device::open() {
+	if(opened) {
+		return false;
+	}
+
 	if(!com) {
 		err(APIError::Unknown);
 		return false;
@@ -168,10 +172,15 @@ bool Device::open() {
 		handleInternalMessage(message);
 	}));
 
+	opened = true;
 	return true;
 }
 
 bool Device::close() {
+	if(!opened) {
+		return false;
+	}
+
 	if(!com) {
 		err(APIError::Unknown);
 		return false;
@@ -181,7 +190,8 @@ bool Device::close() {
 		com->removeMessageCallback(internalHandlerCallbackID);
 
 	goOffline();
-	return com->close();
+	opened = !com->close();
+	return !opened;
 }
 
 bool Device::goOnline() {
