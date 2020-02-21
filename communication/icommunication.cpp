@@ -1,3 +1,4 @@
+#include <iostream>
 #include "icsneo/communication/icommunication.h"
 
 using namespace icsneo;
@@ -45,19 +46,20 @@ bool ICommunication::write(const std::vector<uint8_t>& bytes) {
 	}
 
 	if(writeBlocks) {
-		std::unique_lock<std::mutex> lk(writeMutex);
-		if(writeQueue.size_approx() > writeQueueSize)
-			writeCV.wait(lk);
+                while (!writeQueue.try_enqueue(WriteOperation(bytes))) {}
 	} else {
 		if(writeQueue.size_approx() > writeQueueSize) {
 			report(APIEvent::Type::TransmitBufferFull, APIEvent::Severity::Error);
 			return false;
-		}
+		} else {
+                        bool ret = writeQueue.enqueue(WriteOperation(bytes));
+                        if(!ret) {
+                                std::cout << "writeQueue.enqueu() failed" << std::endl;
+                                report(APIEvent::Type::Unknown, APIEvent::Severity::Error);
+                        } 
+                        return ret;
+                }
 	}
 
-	bool ret = writeQueue.enqueue(WriteOperation(bytes));
-	if(!ret)
-		report(APIEvent::Type::Unknown, APIEvent::Severity::Error);
-
-	return ret;
+	return true;
 }

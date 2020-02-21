@@ -61,7 +61,7 @@ bool FTDI::open() {
 		return false;
 	}
 
-	ftdi.setReadTimeout(100);
+	ftdi.setReadTimeout(1000);
 	ftdi.setWriteTimeout(1000);
 	ftdi.reset();
 	ftdi.setBaudrate(500000);
@@ -184,6 +184,10 @@ void FTDI::readTask() {
 		auto readBytes = ftdi.read(readbuf, READ_BUFFER_SIZE);
 		if(readBytes > 0)
 			readQueue.enqueue_bulk(readbuf, readBytes);
+                if(readBytes < 0) {
+                        std::cout << "FTDI read returned = " << int(readBytes) << std::endl;
+                        report(APIEvent::Type::Unknown, APIEvent::Severity::Error);
+                }
 	}
 }
 
@@ -194,7 +198,10 @@ void FTDI::writeTask() {
 		if(!writeQueue.wait_dequeue_timed(writeOp, std::chrono::milliseconds(100)))
 			continue;
 
-		ftdi.write(writeOp.bytes.data(), (int)writeOp.bytes.size());
-		onWrite();
+		auto writeBytes = ftdi.write(writeOp.bytes.data(), (int)writeOp.bytes.size());
+                if (writeBytes < 0) {
+                         std::cout << "FTDI write returned = " << int(writeBytes) << std::endl;
+                         report(APIEvent::Type::Unknown, APIEvent::Severity::Error);
+                }
 	}
 }
